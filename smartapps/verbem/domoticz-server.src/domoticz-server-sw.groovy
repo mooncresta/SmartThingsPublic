@@ -375,6 +375,8 @@ def onLocation(evt) {
 	log.info "evt.source ${evt.source}"
 
     def description = evt.description
+    log.info "evt.description ${evt.description}"
+    
     def hMap = stringToMap(description)
 
 	try {
@@ -388,7 +390,8 @@ def onLocation(evt) {
     def statusrsp = new JsonSlurper().parseText(body)
     
     statusrsp = statusrsp.result
-    log.info $statusrsp
+//    log.info("${statusrsp}")
+    
     if (state.setStatusrsp == true ) {state.statusrsp = statusrsp}
     state.setStatusrsp = false
 	statusrsp.each 
@@ -453,12 +456,16 @@ private def initialize() {
 /*		Execute the real add or status update of the child device
 /*-----------------------------------------------------------------------------------------*/
 private def addSwitch(addr, passedFile, passedName, passedStatus) {
-    TRACE("addSwitch(${addr})")
+    TRACE("addSwitch Start(${addr}), (${passedFile}), (${passedName}), (${passedStatus})")
 
     def dni = settings.domoticzIpAddress + ":" + settings.domoticzTcpPort + ":" + addr
     
+    def childdev = getChildDevice(dni)
+    
+    TRACE("addSwitch child 1 (${dni}), childdev is (${childdev})")
+    
     /*	the device already exists old style DNI */
-    if (getChildDevice(dni)) {
+    if (childdev) {
     	TRACE("addSwitch(${dni}) old style dni already exists Returning")
         if (state.devices[addr] == null) {
             TRACE("addSwitch(${dni}) old style dni not in state - deleting childdevice")
@@ -467,9 +474,11 @@ private def addSwitch(addr, passedFile, passedName, passedStatus) {
     }
 	
     dni = app.id + ":IDX:" + addr
-	
+	childdev = getChildDevice(dni)
+    TRACE("addSwitch child 2 (${dni}), childdev is (${childdev})")
+
 /*	the device already exists new style DNI */
-     if (getChildDevice(dni)) {
+     if (childdev) {
     	TRACE("addSwitch(${dni}) new style dni already exists Returning")
         if (state.devices[addr] == null) {
             TRACE("addSwitch(${dni}) new style dni not in state - deleting childdevice")
@@ -559,8 +568,11 @@ private def getDeviceListAsText(type) {
     String s = ""
     state.devices.sort().each { k,v ->
         if (v.type == type) {
-           	s += "${k.padLeft(4)} - ${dev.displayName} - ${v.dni}\n"
-			}
+            def dev = getChildDevice(v.dni)
+            if (dev) {
+           	   s += "${k.padLeft(4)} - ${dev.displayName} - ${v.dni}\n"
+               }			
+            }
     }
 
     return s
@@ -707,16 +719,19 @@ private def socketSend(message, addr, level, xSat, xBri) {
         path: rooPath,
         headers: [HOST: "${domoticzIpAddress}:${domoticzTcpPort}"])
 
-	def mSeconds = settings.domoticzDelay.toInteger()
+	try {
+	    Long mSeconds = settings.domoticzDelay.toInteger()
+	 } 	catch (e) {
+     	Long mSeconds =  0
+     }
 
-	pause(mSeconds)
+//pause(mSeconds)
     sendHubCommand(hubAction)
 	
     /*hubActionLog = new physicalgraph.device.HubAction(
         method: "GET",
         path: rooLog,
         headers: [HOST: "${domoticzIpAddress}:${domoticzTcpPort}"])
-
 	pause(mSeconds) 
     sendHubCommand(hubActionLog) */
 	
